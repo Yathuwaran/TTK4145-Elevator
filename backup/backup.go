@@ -60,7 +60,9 @@ func write_backup(elevator Elevator) {
 }
 
 func main(){
+
     var elev Elevator
     elev = read_backup()
+    fmt.Println(elev)
     write_backup(elev)
 }
