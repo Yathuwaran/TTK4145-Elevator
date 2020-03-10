@@ -26,7 +26,7 @@ func main() {
 	}
 
 	//Network communication channels
-	com_ch := com.Communication_ch{
+	test := com.Communication_ch{
     Peer_Update_CH:               make(chan peers.PeerUpdate),
     New_peer_CH:                  make(chan string),
     Lost_peers_CH:                make(chan []string),
@@ -36,41 +36,42 @@ func main() {
     Incoming_msg_CH:              make(chan Message_struct),
     Update_control_CH:            make(chan Message_struct)}
 
-		peer_trans_en_ch:= make(chan bool)
+
 
     var mld Message_struct
-    mld.ID = "Elevator_1"
+    mld.ID = "Elevator_2"
     mld.Destination = Order{1,1}
     mld.Last_floor = 2
     mld.Dir = 1
     mld. State = 2
     mld.Queue = [][]int{{0, 1},{6, 7}}
 
+    peer_ch:= make(chan bool)
 
     go func(){
       for {
         select{
 
-        case a:= <-com_ch.Update_control_CH:
+        case a:= <-test.Update_control_CH:
           fmt.Println(a)
         mld.Last_floor++
 
         //The outgoing message should always be passed to "Update_out_msg_CH". Passing it to "Out_msg_CH"
         //will lead to error.
-        com_ch.Update_out_msg_CH <-mld
+        test.Update_out_msg_CH <-mld
         time.Sleep(50 * time.Millisecond)
       }
       }
     }()
 
 
-	go com.Comm(com_ch)
+	go com.Communication_handler(test)
 
 //Transmitters/Receivers
-	go bcast.Transmitter(12345, com_ch.Out_msg_CH)
-	go bcast.Receiver(12345, com_ch.Incoming_msg_CH)
-	go peers.Transmitter(15647, id, peer_trans_en_ch)
-	go peers.Receiver(15647, com_ch.Peer_Update_CH)
+	go bcast.Transmitter(12345, test.Out_msg_CH)
+	go bcast.Receiver(12345, test.Incoming_msg_CH)
+	go peers.Transmitter(15647, id, peer_ch)
+	go peers.Receiver(15647, test.Peer_Update_CH)
 
 
 	select {}

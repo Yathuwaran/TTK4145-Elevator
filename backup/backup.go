@@ -1,29 +1,15 @@
-package main
+package backup
 
 import (
     "encoding/json"
     "fmt"
     "io/ioutil"
     "os"
-    "strconv"
+    ."../structs"
 )
 
 
-
-type Elevator struct {
-    Elevator[]Status `json:"elevator"`
-}
-
-type Status struct {
-    ID  int `json:"id"`
-    Motor_dir   int `json:"dir"`
-    Queue  [][]int    `json:"queue"`
-    Current_floor int `json:"current_floor"`
-
-}
-
-
-func read_backup() Elevator {
+func Read_backup() Message_struct {
     // Open our jsonFile
     jsonFile, err := os.Open("elevator.json")
     if err != nil {
@@ -35,22 +21,14 @@ func read_backup() Elevator {
 
     // read our opened json as a byte array.
     byteValue, _ := ioutil.ReadAll(jsonFile)
-    var elevator Elevator
+    var elevator Message_struct
     json.Unmarshal(byteValue, &elevator)
 
-    //Accessing json-struct elevator.Elevator[0]
-    for i := 0; i < len(elevator.Elevator); i++ {
-        fmt.Println("Elevator ID: " + strconv.Itoa(elevator.Elevator[i].ID))
-        fmt.Println("Motor direction: " + strconv.Itoa(elevator.Elevator[i].Motor_dir))
-        fmt.Println("Queue:")
-        fmt.Println(elevator.Elevator[i].Queue)
-        fmt.Println("Current Floor: " + strconv.Itoa(elevator.Elevator[i].Current_floor))
-    }
     return elevator
 }
 
 
-func write_backup(elevator Elevator) {
+func Write_backup(elevator Message_struct) {
 
     data, _ := json.MarshalIndent(elevator, "", " ")
     //fmt.Println(string(b))
@@ -59,10 +37,18 @@ func write_backup(elevator Elevator) {
 
 }
 
+/*
 func main(){
 
-    var elev Elevator
-    elev = read_backup()
+  var mld Message_struct
+  mld.ID = "Elevator_1"
+  mld.Destination = Order{1,1}
+  mld.Last_floor = 2
+  mld.Dir = 1
+  mld. State = 2
+  mld.Queue = [][]int{{0, 1},{6, 7}}
+    var elev Message_struct
+    elev = backup.Read_backup()
     fmt.Println(elev)
-    write_backup(elev)
-}
+    backup.Write_backup(mld)
+}*/
