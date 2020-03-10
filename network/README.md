@@ -31,4 +31,4 @@ If you are wondering why Windows is such a hassle, read the comments in [network
 Communication Handler
 ----
 
-The communication handler is used to handle incoming and outgoing messages. This is done by using a structure containing all the information one might need to get good communication between the elevators. See [`networks_test.go`](networks_test.go) for usage example.
+The communication handler is used to handle incoming and outgoing messages. This is done by using a structure containing all the information one might need to get good communication between the elevators. See [`networks_tester.go`](networks_tester.go) for usage example.
