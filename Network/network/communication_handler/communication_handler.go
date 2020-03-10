@@ -1,4 +1,4 @@
-package comm
+package communication_handler
 
 import (
 	"time"
@@ -48,6 +48,8 @@ func Comm(comm Communication_ch){
 
           case <-tick_bcast.C:
               go func(){comm.Out_msg_CH <- out_msg}()
+
+
 
 
           }

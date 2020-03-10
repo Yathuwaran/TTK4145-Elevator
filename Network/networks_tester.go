@@ -4,10 +4,11 @@ import(
   "./network/bcast"
   "./network/localip"
 	"./network/peers"
-  com"./network/comm"
+  com"./network/communication_handler"
   ."../structs"
   "fmt"
   "os"
+  "time"
 
 )
 
@@ -36,6 +37,31 @@ func main() {
     Update_control_CH:            make(chan Message_struct)}
 
 		peer_trans_en_ch:= make(chan bool)
+
+    var mld Message_struct
+    mld.ID = "Elevator_1"
+    mld.Destination = Order{1,1}
+    mld.Last_floor = 2
+    mld.Dir = 1
+    mld. State = 2
+    mld.Queue = [][]int{{0, 1},{6, 7}}
+
+
+    go func(){
+      for {
+        select{
+
+        case a:= <-com_ch.Update_control_CH:
+          fmt.Println(a)
+        mld.Last_floor++
+
+        //The outgoing message should always be passed to "Update_out_msg_CH". Passing it to "Out_msg_CH"
+        //will lead to error.
+        com_ch.Update_out_msg_CH <-mld
+        time.Sleep(50 * time.Millisecond)
+      }
+      }
+    }()
 
 
 	go com.Comm(com_ch)
