@@ -12,7 +12,6 @@ type Communication_ch struct{
   Peer_Update_CH              chan peers.PeerUpdate
   New_peer_CH                 chan string
   Lost_peers_CH               chan []string
-  Init_out_msg_CH             chan Message_struct
   Update_out_msg_CH           chan Message_struct
   Out_msg_CH                  chan Message_struct
   Incoming_msg_CH             chan Message_struct
@@ -39,12 +38,10 @@ func Communication_handler(com_ch Communication_ch){
                 go func(){com_ch.Lost_peers_CH <- p.Lost}()
             }
 
-          case out_msg = <-com_ch.Init_out_msg_CH:
+					case out_msg = <-com_ch.Update_out_msg_CH:
 
           case incoming_msg := <-com_ch.Incoming_msg_CH:
               go func(){com_ch.Update_control_CH <- incoming_msg}()
-
-          case out_msg = <-com_ch.Update_out_msg_CH:
 
           case <-tick_bcast.C:
               go func(){com_ch.Out_msg_CH <- out_msg}()
