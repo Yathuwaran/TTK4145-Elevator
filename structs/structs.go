@@ -1,5 +1,7 @@
 package structs
 
+import "../elevio"
+
 type ButtonType int
 const(BT_HallUp ButtonType  = 0
       BT_HallDown           = 1
@@ -16,7 +18,7 @@ const(
 
 type Order struct {
   Floor         int
-  Button        ButtonType
+  Button        elevio.ButtonType
 }
 
 type ElevatorStatus struct{

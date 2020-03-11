@@ -6,6 +6,12 @@ import (
 	"../elevio"
 )
 
+type order_com struct {
+    order chan int
+}
+
+
+
 //import "../order_module"
 //test commit
 func drive_elev(queue chan int, floors chan int) {
@@ -31,7 +37,7 @@ func drive_elev(queue chan int, floors chan int) {
 	}
 }
 
-func main() {
+func notmain() {
 
 	numFloors := 4
 
