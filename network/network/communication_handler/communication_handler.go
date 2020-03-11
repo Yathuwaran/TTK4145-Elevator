@@ -1,4 +1,4 @@
-package com_chunication_handler
+package communication_handler
 
 import (
 	"time"
