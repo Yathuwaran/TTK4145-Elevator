@@ -109,7 +109,7 @@ func ShouldStop(localOrders [][]int, currentFloor int, lastDir int) (bool) {
 func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors int) (bool) {
 	if (dir == 1) {
 	  for i := currentFloor + 1; i < maxFloors; i++ {
-		  if (localOrders[i][0] == 1 || localOrders[i][2] == 1) {
+		  if (localOrders[i][0] == 1 || localOrders[i][2] == 1 || localOrders[maxFloors-1][1] == 1) {
 				return true
 			}
 	  }
@@ -117,7 +117,7 @@ func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors
 
 	if (dir == -1) {
 	  for i := currentFloor - 1; i >= 0; i-- {
-		  if (localOrders[i][1] == 1 || localOrders[i][2] == 1) {
+		  if (localOrders[i][1] == 1 || localOrders[i][2] == 1 || localOrders[0][0] == 1) {
 				return true
 			}
 	  }
@@ -203,10 +203,10 @@ func main(){
 
   //this should be made in the real main and sent to the order module as well
   orders := structs.Order_com{
-    OrderFromButton: make(chan structs.Order),
-		OrderForLocal: make(chan structs.Order),
-    OrderDone: make(chan structs.Order),
-	  Light: make(chan structs.LightOrder)}
+    OrderFromButton: make(chan structs.Order, 2048),
+		OrderForLocal: make(chan structs.Order, 2048),
+    OrderDone: make(chan structs.Order, 2048),
+	  Light: make(chan structs.LightOrder, 2048)}
 
   numFloors := 4
   go Fake_gen_orders(orders, event)
