@@ -21,6 +21,19 @@ type Order struct {
   Button        elevio.ButtonType
 }
 
+type LightOrder struct {
+  Floor         int
+  Button        elevio.ButtonType
+  Value         bool
+}
+
+type Order_com struct {
+  orderFromButton chan Order
+  orderForLocal   chan Order
+  orderDone       chan Order
+	light           chan LightOrder
+}
+
 type ElevatorStatus struct{
   Destination   Order
   Last_floor    int
