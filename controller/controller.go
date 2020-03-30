@@ -16,9 +16,7 @@ type Event struct {
   stop chan bool
 }
 /*
-ELEVATOR DOESNT RESET FLOOR 1 DIR UP AND FLOOR MAX DIR DOWN
 ELEVATOR DOESNT OPEN WHEN BUTTONS ON CURRENT FLOOR
-
 */
 
 func Fake_gen_orders(orders structs.Order_com, event Event) {
@@ -96,14 +94,20 @@ func SendButtonPresses(orders structs.Order_com, event Event) {
 	}
 }
 
-func ShouldStop(localOrders [][]int, currentFloor int, lastDir int) (bool) {
+func ShouldStop(localOrders [][]int, currentFloor int, lastDir int, maxFloors int) (bool) {
 	if (lastDir == 1) {
 		if (localOrders[currentFloor][0] == 1 || localOrders[currentFloor][2] == 1) {
+			return true
+		}
+		if (currentFloor == maxFloors - 1 && localOrders[currentFloor][1] == 1) {
 			return true
 		}
 	}
 	if (lastDir == -1) {
 		if (localOrders[currentFloor][1] == 1|| localOrders[currentFloor][2] == 1) {
+			return true
+		}
+		if (currentFloor == 0 && localOrders[currentFloor][0] == 1) {
 			return true
 		}
 	}
@@ -145,8 +149,8 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int) {
   currentFloor := f
 	lastDir := elevio.MD_Down
 
-  updateMovement := make(chan int, 2048)
-  executeStop := make(chan int, 2048)
+  updateMovement := make(chan int, 4096)
+  executeStop := make(chan int, 4096)
 
   for {
 		select {
@@ -160,7 +164,7 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int) {
 		case floor := <-event.floors:
         currentFloor = floor
 				fmt.Printf("Reached floor %d", currentFloor)
-        if ShouldStop(localOrders, currentFloor, lastDir) {
+        if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
 					executeStop <- 1
 				} else {
 					updateMovement <- 1
@@ -207,10 +211,10 @@ func main(){
 
   //this should be made in the real main and sent to the order module as well
   orders := structs.Order_com{
-    OrderFromButton: make(chan structs.Order, 2048),
-		OrderForLocal: make(chan structs.Order, 2048),
-    OrderDone: make(chan structs.Order, 2048),
-	  Light: make(chan structs.LightOrder, 2048)}
+    OrderFromButton: make(chan structs.Order, 4096),
+		OrderForLocal: make(chan structs.Order, 4096),
+    OrderDone: make(chan structs.Order, 4096),
+	  Light: make(chan structs.LightOrder, 4096)}
 
   numFloors := 4
   go Fake_gen_orders(orders, event)
