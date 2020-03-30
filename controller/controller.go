@@ -15,7 +15,11 @@ type Event struct {
   obstr chan bool
   stop chan bool
 }
+/*
+ELEVATOR DOESNT RESET FLOOR 1 DIR UP AND FLOOR MAX DIR DOWN
+ELEVATOR DOESNT OPEN WHEN BUTTONS ON CURRENT FLOOR
 
+*/
 
 func Fake_gen_orders(orders structs.Order_com, event Event) {
   for {
