@@ -28,10 +28,10 @@ type LightOrder struct {
 }
 
 type Order_com struct {
-  orderFromButton chan Order
-  orderForLocal   chan Order
-  orderDone       chan Order
-	light           chan LightOrder
+  OrderFromButton chan Order
+  OrderForLocal   chan Order
+  OrderDone       chan Order
+	Light           chan LightOrder
 }
 
 type ElevatorStatus struct{

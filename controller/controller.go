@@ -20,11 +20,20 @@ type Event struct {
 func Fake_gen_orders(orders structs.Order_com, event Event) {
   for {
     select {
-    case a := <- event.buttons:
-      orders.orderForLocal <- structs.Order{Floor: a.Floor,
-                        Button: a.Button}
-    case b := <-orders.orderDone:
+    case a := <- orders.OrderFromButton:
+      orders.OrderForLocal <- structs.Order{Floor: a.Floor,
+												Button: a.Button}
+			orders.Light <- structs.LightOrder{Floor: a.Floor,
+												Button: a.Button, Value: true}
+      fmt.Printf("Order module got order at floor %d \n", a.Floor)
+    case b := <-orders.OrderDone:
       fmt.Println("Order complete: ", b.Floor)
+			orders.Light <- structs.LightOrder{Floor: b.Floor,
+												Button: 0, Value: false}
+      orders.Light <- structs.LightOrder{Floor: b.Floor,
+												Button: 1, Value: false}
+			orders.Light <- structs.LightOrder{Floor: b.Floor,
+												Button: 2, Value: false}
     }
   }
 }
@@ -56,40 +65,40 @@ func Init_elev(port int, numFloors int) (Event, int) {
 	}
 
   //go to known state (down to closest floor)
+	fmt.Println("Initiating elev")
   elevio.SetMotorDirection(d)
   floor = <-event.floors
   d = elevio.MD_Stop
   elevio.SetMotorDirection(d)
-
+  fmt.Printf("Elevator initiated at floor %d \n", floor)
   return event, floor
 }
 
-func updateLights(orders structs.Order_com) {
+func UpdateLights(orders structs.Order_com) {
   for {
 		select {
-		case a := <-orders.light:
-      SetButtonLamp(a.Button, a.Floor, a.Value)
+		case a := <-orders.Light:
+      elevio.SetButtonLamp(a.Button, a.Floor, a.Value)
+			fmt.Printf("Lamp on: button %d floor %d \n", a.Button, a.Floor)
 		}
 	}
 }
 
-func sendButtonPresses(orders structs.Order_com, event Event) {
+func SendButtonPresses(orders structs.Order_com, event Event) {
 	for {
-		select {
-		case a := <- event.buttons:
-			orders.orderFromButton <- structs.Order{Floor: a.Floor,
-												Button: a.Button}
-	  }
-  }
+		a := <- event.buttons
+	  orders.OrderFromButton <- structs.Order{Floor: a.Floor, Button: a.Button}
+    fmt.Printf("Button sent %d %d", a.Button, a.Floor)
+	}
 }
 
-func shouldStop(localOrders [][]int, currentFloor int, lastDir MotorDirection) (bool) {
-	if (lastDir == elevio.MD_Up) {
+func ShouldStop(localOrders [][]int, currentFloor int, lastDir int) (bool) {
+	if (lastDir == 1) {
 		if (localOrders[currentFloor][0] == 1 || localOrders[currentFloor][2] == 1) {
 			return true
 		}
 	}
-	if (lastDir == elevio.MD_Down) {
+	if (lastDir == -1) {
 		if (localOrders[currentFloor][1] == 1|| localOrders[currentFloor][2] == 1) {
 			return true
 		}
@@ -97,59 +106,60 @@ func shouldStop(localOrders [][]int, currentFloor int, lastDir MotorDirection) (
 	return false
 }
 
+func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors int) (bool) {
+	if (dir == 1) {
+	  for i := currentFloor + 1; i < maxFloors; i++ {
+		  if (localOrders[i][0] == 1 || localOrders[i][2] == 1) {
+				return true
+			}
+	  }
+	}
+
+	if (dir == -1) {
+	  for i := currentFloor - 1; i >= 0; i-- {
+		  if (localOrders[i][1] == 1 || localOrders[i][2] == 1) {
+				return true
+			}
+	  }
+	}
+	return false
+}
 
 func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int) {
-  /*pseudocode:
-  create 2d-array for orders.
-  if orders in current dir: go to the one furthest away
-  elseif orders in other dir: choose furthest
-  else stop
 
-  if driving by floor
-  check for orders: open/close door, confirm order
-
-  elevator should somehow give its status
-  can be done when passing floors
-  motor change should also be updated
-  both sent on status channel, not sure if this needs its own module
-  (harder to implement separate module, but doing it every floor/motor change gives
-  irregular updates. Possibly need timestamp, given by status sender!)
-
-  one routine should send button presses to order module
-  should also recieve orders and update the local array (with mutex)
-  this allows the elevator to be "stupid", only needs to check stuff when it hits a floor
-
-  */
-
-
-
-  go updateLights(orders)
-	go sendButtonPresses(orders, event)
-
+  go UpdateLights(orders)
+	go SendButtonPresses(orders, event)
+  fmt.Println("updatelights and sendbuttonpresses")
 
 	//localOrders[floor][button]
 	//buttons 0 to 2: up,down,cab
 	localOrders := make([][]int, maxFloors)
-  for i := 0; i < maxfloors; i++ {
+  for i := 0; i < maxFloors; i++ {
 		localOrders[i] = make([]int, 3)
 	}
 
   currentFloor := f
 	lastDir := elevio.MD_Down
 
-  updateMovement := make(chan int)
-  executeStop := make(chan int)
+  updateMovement := make(chan int, 2048)
+  executeStop := make(chan int, 2048)
 
   for {
 		select {
-		case order := <- orders.orderForLocal:
+		case order := <- orders.OrderForLocal:
+			fmt.Printf("Updating orders %d", order.Button, order.Floor)
 		  localOrders[order.Floor][order.Button] = 1
 			updateMovement <- 1
+			fmt.Printf("Updated order \n")
+			fmt.Println(localOrders)
 
 		case floor := <-event.floors:
         currentFloor = floor
-        if shouldStop(localOrders, currentFloor, lastDir) {
+				fmt.Printf("Reached floor %d", currentFloor)
+        if ShouldStop(localOrders, currentFloor, lastDir) {
 					executeStop <- 1
+				} else {
+					updateMovement <- 1
 				}
 
 		case <-updateMovement:
@@ -157,59 +167,34 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int) {
 			//(check for orders in other dir)
 			//go towards order
 			//or idle
+			fmt.Printf("Updating movement \n")
+			oppositeDir := lastDir * (-1)
+			if (OrdersInDirection(lastDir, localOrders, currentFloor, maxFloors)) {
+			  elevio.SetMotorDirection(elevio.MotorDirection(lastDir))
+
+			} else if (OrdersInDirection(oppositeDir, localOrders, currentFloor, maxFloors)) {
+				elevio.SetMotorDirection(elevio.MotorDirection(oppositeDir))
+				lastDir = oppositeDir
+			} else {
+				elevio.SetMotorDirection(elevio.MD_Stop)
+			}
+			fmt.Printf("Updated movement \n")
+
 
 		case <-executeStop:
-
-
-
-
-		default:
-      //send status update on timer interval
+			fmt.Printf("Executing stop at floor %d", currentFloor)
+			elevio.SetMotorDirection(elevio.MD_Stop)
+			elevio.SetDoorOpenLamp(true)
+			time.Sleep(1 * time.Second)
+			elevio.SetDoorOpenLamp(false)
+			localOrders[currentFloor][0] = 0
+			localOrders[currentFloor][1] = 0
+			localOrders[currentFloor][2] = 0
+			orders.OrderDone <- structs.Order{Floor: currentFloor}
+			updateMovement <- 1
+			fmt.Printf("Done executing floor %d", currentFloor)
 		}
 	}
-
-
-  /*pseudocode:
-	for
-	select
-
-	floor <-
-    -should stop?
-		  do it
-			send order done
-       SetFloorIndicator(int)
-			 SetDoorOpenLamp(bool)
-
-
-	order_from_orders <-
-	  update local orders
-
-  */
-
-
-  current_floor := f
-  floor_goal := -1
-  for {
-    select {
-    case a := <-orders.orderFromButton:
-      if current_floor < a.Floor {
-        elevio.SetMotorDirection(elevio.MD_Up)
-      } else if current_floor > a.Floor {
-        elevio.SetMotorDirection(elevio.MD_Down)
-      }
-      floor_goal = a.Floor
-
-    case b := <-event.floors:
-      current_floor = b
-      if current_floor == floor_goal {
-        elevio.SetMotorDirection(elevio.MD_Stop)
-        elevio.SetDoorOpenLamp(true)
-        time.Sleep(1 * time.Second)
-        elevio.SetDoorOpenLamp(false)
-        orders.orderDone <- structs.Order{Floor: b}
-      }
-    }
-  }
 }
 
 
@@ -218,15 +203,16 @@ func main(){
 
   //this should be made in the real main and sent to the order module as well
   orders := structs.Order_com{
-    orderFromButton: make(chan structs.Order),
-		orderForLocal: make(chan structs.Order),
-    orderDone: make(chan structs.Order),
-	  light: make(chan structs.LightOrder)}
+    OrderFromButton: make(chan structs.Order),
+		OrderForLocal: make(chan structs.Order),
+    OrderDone: make(chan structs.Order),
+	  Light: make(chan structs.LightOrder)}
 
-  numFloors = 4
+  numFloors := 4
   go Fake_gen_orders(orders, event)
+	fmt.Println("Initiated fake orders")
   go Operate_elev(orders, event, current_floor, numFloors)
-
+  fmt.Println("Initiated operate elev")
   for{}
 }
 
