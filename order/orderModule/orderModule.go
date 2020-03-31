@@ -3,6 +3,7 @@ package orderModule
 import (
 	S "TTK4145-Elevator/structs"
 	"math"
+	"fmt"
 )
 
 var orderQueue chan S.Order
@@ -28,17 +29,29 @@ func RetrieveLocalOrder() S.Order {
 	return order
 }
 
-/*
-func DetermineBestElevator() S.Message_struct {
+// GetBestElev returns the best suited elevator for an order
+func GetBestElev(elevArray []S.Message_struct, order S.Order) S.Message_struct {
+	bestIndex := 0
+	bestScore := 0
 
-}*/
+	for i := 0; i < len(elevArray); i++ {
+		score := ElevatorCostFunction(elevArray[i], order)
+		fmt.Printf("Elev: %s     Score: %d \n", elevArray[i].ID, score)
+		if score > bestScore {
+			bestScore = score
+			bestIndex = i
+		}
+	}
+	return elevArray[bestIndex]
+}
 
+// ElevatorCostFunction determines how well suited an elevator is for a particular order
 func ElevatorCostFunction(peer S.Message_struct, order S.Order) int {
 
 	var totalScore int
 
-	const ( // TODO: ASSIGN VALUES
-		Weight_PickupOnPassing       = 1000
+	const ( // These values might need tweaking
+		Weight_PickupOnPassing       = 50
 		Weight_DistanceToOrder       = 10
 		Weight_ActivityStateRunning  = 1
 		Weight_ActivityStateIdle     = 50

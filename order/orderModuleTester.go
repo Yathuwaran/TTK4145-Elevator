@@ -9,22 +9,30 @@ import (
 func main() {
 
 	//Dummy struct
-	var elevatorOne S.Message_struct
-	elevatorOne.Last_floor = 4
-	elevatorOne.Dir = S.MD_Down
-	elevatorOne.State = S.Moving
+	var elevOne S.Message_struct
+	elevOne.ID = "ElevOne"
+	elevOne.Last_floor = 4
+	elevOne.Dir = S.MD_Down
+	elevOne.State = S.Moving
 
-	var elevatorTwo S.Message_struct
-	elevatorTwo.Last_floor = 3
-	elevatorTwo.Dir = S.MD_Stop
-	elevatorTwo.State = S.LOST_CONN
+	var elevTwo S.Message_struct
+	elevTwo.ID = "ElevTwo"
+	elevTwo.Last_floor = 1
+	elevTwo.Dir = S.MD_Up
+	elevTwo.State = S.Moving
+
+	var elevThree S.Message_struct
+	elevThree.ID = "ElevThree"
+	elevThree.Last_floor = 2
+	elevThree.Dir = S.MD_Up
+	elevThree.State = S.Moving
 
 	var order S.Order
 	order.Button = S.BT_HallDown
-	order.Floor = 1
+	order.Floor = 3
 
-	elevatorOneScore := orderModule.ElevatorCostFunction(elevatorOne, order)
-	elevatorTwoScore := orderModule.ElevatorCostFunction(elevatorTwo, order)
+	elevArray := []S.Message_struct{elevOne, elevTwo, elevThree}
+	bestElev := orderModule.GetBestElev(elevArray, order)
 
-	fmt.Println("Elevator 1: ", elevatorOneScore, "Elevator 2: ", elevatorTwoScore)
+	fmt.Println(bestElev.ID)
 }
