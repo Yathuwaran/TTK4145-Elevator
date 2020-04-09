@@ -5,3 +5,10 @@ This is the project repository for the elevator project in [TTK4145](https://git
 First initiate a Simulator by writing "./SimElevatorServer --port PORTNR"
 
 Then start main by writing "go run main.go PORTNR"
+
+
+TODO: 
+    - Fix bugs in controller
+    - Add functionality such that Hall_btn lights are same for all elevs
+    - Add backup (not sure if needed?)
+    
