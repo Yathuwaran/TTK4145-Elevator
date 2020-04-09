@@ -1,8 +1,8 @@
 package main
 
 import (
-	"TTK4145-Elevator/order/orderModule"
-	S "TTK4145-Elevator/structs"
+	"./orderModule"
+	S "../structs"
 	"fmt"
 )
 
@@ -31,7 +31,16 @@ func main() {
 	order.Button = S.BT_HallDown
 	order.Floor = 3
 
-	elevArray := []S.Message_struct{elevOne, elevTwo, elevThree}
+	type elevsd map[string]*S.Message_struct
+
+	elevArray := make(elevsd)
+
+
+
+	elevArray["ElevOne"] = &elevOne
+	elevArray["ElevTwo"] = &elevTwo
+	elevArray["ElevThree"] = &elevThree
+
 	bestElev := orderModule.GetBestElev(elevArray, order)
 
 	fmt.Println(bestElev.ID)

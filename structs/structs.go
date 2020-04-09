@@ -48,11 +48,18 @@ const(
   OPENDOOR            = 2
   LOST_CONN           = 3)
 
-type Message_struct struct{
+type ExternalOrder struct{
   ID            string
   Destination   Order
+  
+}
+
+type Message_struct struct{
+  ID            string
+  //Destination   Order
   Last_floor    int
   Dir           MotorDirection
   State         ElevatorState
   Queue         [][]int
+  ExternalOrder ExternalOrder
 }

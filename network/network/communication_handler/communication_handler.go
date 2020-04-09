@@ -29,9 +29,9 @@ func Communication_handler(com_ch Communication_ch){
       			fmt.Printf("  Peers:    %q\n", p.Peers)
       			fmt.Printf("  New:      %q\n", p.New)
       			fmt.Printf("  Lost:     %q\n", p.Lost)
-
             if len(p.New) > 0{
                 go func(){com_ch.New_peer_CH <- p.New}()
+
               }
 
             if len(p.Lost) > 0{
