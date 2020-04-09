@@ -83,12 +83,18 @@ func ShouldStop(localOrders [][]int, currentFloor int, lastDir int, maxFloors in
 		if (currentFloor == maxFloors - 1 && localOrders[currentFloor][1] == 1) {
 			return true
 		}
+		if (!OrdersInDirection(lastDir, localOrders, currentFloor, maxFloors)) {
+			return true
+		}
 	}
 	if (lastDir == -1) {
 		if (localOrders[currentFloor][1] == 1|| localOrders[currentFloor][2] == 1) {
 			return true
 		}
 		if (currentFloor == 0 && localOrders[currentFloor][0] == 1) {
+			return true
+		}
+		if (!OrdersInDirection(lastDir, localOrders, currentFloor, maxFloors)) {
 			return true
 		}
 	}
@@ -99,7 +105,7 @@ func ShouldStop(localOrders [][]int, currentFloor int, lastDir int, maxFloors in
 func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors int) (bool) {
 	if (dir == 1) {
 	  for i := currentFloor + 1; i < maxFloors; i++ {
-		  if (localOrders[i][0] == 1 || localOrders[i][2] == 1 || localOrders[i][1] == 1) {
+		  if (localOrders[i][0] == 1 || localOrders[i][1] == 1 || localOrders[i][2] == 1) {
 				return true
 			}
 	  }
@@ -107,7 +113,7 @@ func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors
 
 	if (dir == -1) {
 	  for i := currentFloor - 1; i >= 0; i-- {
-		  if (localOrders[i][1] == 1 || localOrders[i][2] == 1 || localOrders[i][0] == 1) {
+		  if (localOrders[i][0] == 1 || localOrders[i][1] == 1 || localOrders[i][2] == 1) {
 				return true
 			}
 	  }
