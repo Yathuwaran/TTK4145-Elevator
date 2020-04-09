@@ -254,3 +254,22 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int) {
 		}
 	}
 }
+
+
+func main(){
+  event, current_floor := Init_elev(15657, 4)
+
+  //this should be made in the real main and sent to the order module as well
+  orders := structs.Order_com{
+    OrderFromButton: make(chan structs.Order, 4096),
+		OrderForLocal: make(chan structs.Order, 4096),
+    OrderDone: make(chan structs.Order, 4096),
+	  Light: make(chan structs.LightOrder, 4096)}
+
+  numFloors := 4
+  go Fake_gen_orders(orders, event)
+	fmt.Println("Initiated fake orders")
+  go Operate_elev(orders, event, current_floor, numFloors)
+  fmt.Println("Initiated operate elev")
+  for{}
+}
