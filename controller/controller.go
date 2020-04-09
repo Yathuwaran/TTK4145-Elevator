@@ -1,5 +1,6 @@
 package controller
 
+
 import (
 	"fmt"
   //"strconv"
@@ -9,38 +10,13 @@ import (
   "time"
 )
 
+
 type Event struct {
   buttons chan elevio.ButtonEvent
   floors chan int
   obstr chan bool
   stop chan bool
 }
-/*
-ELEVATOR DOESNT OPEN WHEN BUTTONS ON CURRENT FLOOR
-*/
-
-/*
-func Fake_gen_orders(orders structs.Order_com, event Event) {
-  for {
-    select {
-    case a := <- orders.OrderFromButton:
-      orders.OrderForLocal <- structs.Order{Floor: a.Floor,
-												Button: a.Button}
-			orders.Light <- structs.LightOrder{Floor: a.Floor,
-												Button: a.Button, Value: true}
-      fmt.Printf("Order module got order at floor %d \n", a.Floor)
-    case b := <-orders.OrderDone:
-      fmt.Println("Order complete: ", b.Floor)
-			orders.Light <- structs.LightOrder{Floor: b.Floor,
-												Button: 0, Value: false}
-      orders.Light <- structs.LightOrder{Floor: b.Floor,
-												Button: 1, Value: false}
-			orders.Light <- structs.LightOrder{Floor: b.Floor,
-												Button: 2, Value: false}
-    }
-  }
-}
-*/
 
 
 func Init_elev(port string, numFloors int) (Event, int) {
@@ -79,7 +55,6 @@ func Init_elev(port string, numFloors int) (Event, int) {
 }
 
 
-
 func UpdateLights(orders structs.Order_com) {
   for {
 		select {
@@ -90,6 +65,7 @@ func UpdateLights(orders structs.Order_com) {
 	}
 }
 
+
 func SendButtonPresses(orders structs.Order_com, event Event) {
 	for {
 		a := <- event.buttons
@@ -97,6 +73,7 @@ func SendButtonPresses(orders structs.Order_com, event Event) {
     //fmt.Printf("Button sent %d %d \n", a.Button, a.Floor)
 	}
 }
+
 
 func ShouldStop(localOrders [][]int, currentFloor int, lastDir int, maxFloors int) (bool) {
 	if (lastDir == 1) {
@@ -118,6 +95,7 @@ func ShouldStop(localOrders [][]int, currentFloor int, lastDir int, maxFloors in
 	return false
 }
 
+
 func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors int) (bool) {
 	if (dir == 1) {
 	  for i := currentFloor + 1; i < maxFloors; i++ {
@@ -138,16 +116,11 @@ func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors
 }
 
 
-
-func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int,  Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
-  //var outgoing_msg structs.Message_struct
-
+func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int) {
 
   go UpdateLights(orders)
 	go SendButtonPresses(orders, event)
-
-
-  fmt.Println("Update lights and send button presses \n")
+  fmt.Println("updatelights and sendbuttonpresses")
 
 	//localOrders[floor][button]
 	//buttons 0 to 2: up,down,cab
@@ -161,27 +134,32 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int,  
 
   updateMovement := make(chan int, 4096)
   executeStop := make(chan int, 4096)
+	idle := true
 
   for {
 		select {
 		case order := <- orders.OrderForLocal:
-			fmt.Printf("Updating orders\n")
+			fmt.Printf("Updating orders %d", order.Button, order.Floor)
 		  localOrders[order.Floor][order.Button] = 1
 			updateMovement <- 1
-			fmt.Printf("Updated order\n")
+			fmt.Printf("Updated order \n")
 			fmt.Println(localOrders)
-			outgoing_msg.Queue = localOrders
-			go func() { Update_out_msg_CH <- outgoing_msg }()
+			if (idle == true && order.Floor == currentFloor) {
+				executeStop <- 1
+				//executeStop(localOrders, orders, currentFloor)
+			}
+			//updateMovement(lastDir, localOrders, currentFloor, maxFloors, &idle)
+
 		case floor := <-event.floors:
-				outgoing_msg.Last_floor = floor
-				go func() { Update_out_msg_CH <- outgoing_msg }()
         currentFloor = floor
-				elevio.SetFloorIndicator(floor)
-				fmt.Printf("Reached floor %d \n", currentFloor)
+				fmt.Printf("Reached floor %d", currentFloor)
         if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
 					executeStop <- 1
+					//executeStop(localOrders, orders, currentFloor)
+					//updateMovement(lastDir, localOrders, currentFloor, maxFloors, &idle)
 				} else {
 					updateMovement <- 1
+					//updateMovement(lastDir, localOrders, currentFloor, maxFloors, &idle)
 				}
 
 		case <-updateMovement:
@@ -189,59 +167,37 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int,  
 			//(check for orders in other dir)
 			//go towards order
 			//or idle
-			//fmt.Printf("Updating movement \n")
+			fmt.Printf("Updating movement \n")
 			oppositeDir := lastDir * (-1)
 			if (OrdersInDirection(lastDir, localOrders, currentFloor, maxFloors)) {
 			  elevio.SetMotorDirection(elevio.MotorDirection(lastDir))
-				outgoing_msg.Dir = structs.MotorDirection(lastDir)
-				outgoing_msg.State = 1
+				idle = false
+
 			} else if (OrdersInDirection(oppositeDir, localOrders, currentFloor, maxFloors)) {
 				elevio.SetMotorDirection(elevio.MotorDirection(oppositeDir))
 				lastDir = oppositeDir
-				outgoing_msg.Dir = structs.MotorDirection(oppositeDir)
-				outgoing_msg.State = 1
+				idle = false
+
 			} else {
 				elevio.SetMotorDirection(elevio.MD_Stop)
-				outgoing_msg.Dir = 0
-				outgoing_msg.State = 0
+				idle = true
 			}
-			//fmt.Printf("Updated movement \n")
-			go func() { Update_out_msg_CH <- outgoing_msg }()
+			fmt.Printf("Updated movement \n")
 
 
 		case <-executeStop:
-			fmt.Printf("Executing stop at floor %d\n", currentFloor)
+			fmt.Printf("Executing stop at floor %d", currentFloor)
 			elevio.SetMotorDirection(elevio.MD_Stop)
 			elevio.SetDoorOpenLamp(true)
-			outgoing_msg.State = 2
 			time.Sleep(1 * time.Second)
 			elevio.SetDoorOpenLamp(false)
-			go func() { Update_out_msg_CH <- outgoing_msg }()
 			localOrders[currentFloor][0] = 0
 			localOrders[currentFloor][1] = 0
 			localOrders[currentFloor][2] = 0
 			orders.OrderDone <- structs.Order{Floor: currentFloor}
 			updateMovement <- 1
-			fmt.Printf("Done executing floor %d\n", currentFloor)
+			fmt.Printf("Done executing floor %d", currentFloor)
 
 		}
 	}
-
 }
-
-
-
-
-
-/*
-func Elev_status() {}
-
-
-func motor_move(dir) {}
-func motor_stop() {}
-func motor_status() {}
-
-func light_on(light_num) {}
-func light_off(light_num) {}
-func check_light_status(light_num) {}
-*/
