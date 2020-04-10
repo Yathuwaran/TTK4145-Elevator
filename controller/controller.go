@@ -180,6 +180,9 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, U
   for {
 		select {
 		case order := <- orders.OrderForLocal:
+
+			orders.Light <- structs.LightOrder{Floor: order.Floor, Button: order.Button, Value: true}
+
 			localOrders[order.Floor][order.Button] = 1
 			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			//fmt.Println(localOrders)

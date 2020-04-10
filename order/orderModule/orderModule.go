@@ -47,14 +47,19 @@ func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elev
   for {
     select {
     case a := <- orders.OrderFromButton:
+			if (int(a.Button) == 2 ){
+				orders.OrderForLocal <- a
+			}else{
 			external := GetBestElev(elevArray, a)
-
-
 			fmt.Println("The best elevator is:", external.ID, "\n")
-			go func (){ExternalOrder <- external}()
+			ExternalOrder <- external
+		}
+
+
+
 
     case b := <-orders.OrderDone:
-      fmt.Println("Order complete: \n", b.Floor)
+      fmt.Println("Order complete \n")
 			orders.Light <- S.LightOrder{Floor: b.Floor,
 												Button: 0, Value: false}
       orders.Light <- S.LightOrder{Floor: b.Floor,
@@ -66,8 +71,6 @@ func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elev
 			 if (c.ID) == id{
 				 fmt.Println("---------------------I'll handle the order-----------------------")
 				 orders.OrderForLocal <- c.Destination
-				 orders.Light <- S.LightOrder{Floor: c.Destination.Floor,
-	 												Button: c.Destination.Button, Value: true}
 				 outgoing_msg.ExternalOrder.ID = "Empty"
     		} else {
 					outgoing_msg.ExternalOrder = c
@@ -75,7 +78,8 @@ func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elev
 					go func() { Update_out_msg_CH <- outgoing_msg
 											time.Sleep(100 * time.Millisecond)
 											outgoing_msg.ExternalOrder.ID = "Empty"
-											Update_out_msg_CH <- outgoing_msg}()
+											Update_out_msg_CH <- outgoing_msg
+											}()
 				}
 
 
@@ -98,8 +102,6 @@ func AddExternalOrder(orders S.Order_com, elevArray map[string]*S.Message_struct
 
 				fmt.Println("---------------Received External Order---------------")
 				orders.OrderForLocal <- elevArray[key[i]].ExternalOrder.Destination
-				orders.Light <- S.LightOrder{Floor: elevArray[key[i]].ExternalOrder.Destination.Floor,
-												 Button: elevArray[key[i]].ExternalOrder.Destination.Button, Value: true}
 				mutex.Lock()
 				((*elevArray[key[i]]).ExternalOrder).ID = "Empty"
 				mutex.Unlock()
