@@ -11,5 +11,10 @@ Then start main by writing "go run main.go PORTNR"
 TODO: 
 
  - [ ] Fix bugs in controller
- - [ ]  Add functionality such that Hall_btn lights are same for all elevs
+ - [ ] Add functionality such that Hall_btn lights are same for all elevs
  - [ ] Add backup (not sure if needed?)
+
+Known bugs
+
+ - [ ] Cab orders are sometimes executed by other elevators
+ - [ ] Some orders are weighed poorly, orders inefficient
