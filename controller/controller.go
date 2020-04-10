@@ -2,7 +2,7 @@ package controller
 
 
 import (
-	"fmt"
+	//"fmt"
 	"../elevio"
 	"../structs"
 	"time"
@@ -117,7 +117,7 @@ func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors
 
 
 func updateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloors int, idle *bool, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
-	fmt.Printf("Updating movement \n")
+	//fmt.Printf("Updating movement \n")
 	oppositeDir := *lastDir * (-1)
 	if (OrdersInDirection(*lastDir, localOrders, currentFloor, maxFloors)) {
 		elevio.SetMotorDirection(elevio.MotorDirection(*lastDir))
@@ -139,12 +139,12 @@ func updateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloo
 		*idle = true
 	}
 	go func() { Update_out_msg_CH <- outgoing_msg }()
-	fmt.Printf("Updated movement \n")
+	//fmt.Printf("Updated movement \n")
 }
 
 //always updateMovement after executeStop
 func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
-	fmt.Printf("Executing stop at floor %d\n", currentFloor)
+	//fmt.Printf("Executing stop at floor %d\n", currentFloor)
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	elevio.SetDoorOpenLamp(true)
 	outgoing_msg.State = 2
@@ -155,7 +155,7 @@ func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int
 	localOrders[currentFloor][1] = 0
 	localOrders[currentFloor][2] = 0
 	orders.OrderDone <- structs.Order{Floor: currentFloor}
-	fmt.Printf("Done executing floor %d\n", currentFloor)
+	//fmt.Printf("Done executing floor %d\n", currentFloor)
 }
 
 
@@ -182,7 +182,7 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, U
 		case order := <- orders.OrderForLocal:
 			localOrders[order.Floor][order.Button] = 1
 			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
-			fmt.Println(localOrders)
+			//fmt.Println(localOrders)
 			outgoing_msg.Queue = localOrders
 			go func() { Update_out_msg_CH <- outgoing_msg }()
 			if (idle == true && order.Floor == currentFloor) {
