@@ -4,35 +4,35 @@ package controller
 import (
 	"fmt"
 	"../elevio"
-  "../structs"
-  "time"
+	"../structs"
+	"time"
 )
 
 
 type Event struct {
-  buttons chan elevio.ButtonEvent
-  floors chan int
-  obstr chan bool
-  stop chan bool
+	buttons chan elevio.ButtonEvent
+	floors chan int
+	obstr chan bool
+	stop chan bool
 }
 
 
 func Init_elev(port string, numFloors int) (Event, int) {
-  elevio.Init("localhost:"+port, numFloors)
+	elevio.Init("localhost:"+port, numFloors)
 
-  var d elevio.MotorDirection = elevio.MD_Down
-  floor := -1
+	var d elevio.MotorDirection = elevio.MD_Down
+	floor := -1
 
-  event := Event{
-    buttons:    make(chan elevio.ButtonEvent),
-    floors:     make(chan int),
-    obstr:      make(chan bool),
-    stop:       make(chan bool)}
+	event := Event{
+		buttons:    make(chan elevio.ButtonEvent),
+		floors:     make(chan int),
+		obstr:      make(chan bool),
+		stop:       make(chan bool)}
 
-  go elevio.PollButtons(event.buttons)
-  go elevio.PollFloorSensor(event.floors)
-  go elevio.PollObstructionSwitch(event.obstr)
-  go elevio.PollStopButton(event.stop)
+	go elevio.PollButtons(event.buttons)
+	go elevio.PollFloorSensor(event.floors)
+	go elevio.PollObstructionSwitch(event.obstr)
+	go elevio.PollStopButton(event.stop)
 
 	//turn off all lights
 	for f := 0; f < numFloors; f++ {
@@ -41,21 +41,21 @@ func Init_elev(port string, numFloors int) (Event, int) {
 		}
 	}
 
-  //go to known state (down to closest floor)
-  elevio.SetMotorDirection(d)
+	//go to known state (down to closest floor)
+	elevio.SetMotorDirection(d)
 
-  floor = <-event.floors
-  d = elevio.MD_Stop
-  elevio.SetMotorDirection(d)
-  return event, floor
+	floor = <-event.floors
+	d = elevio.MD_Stop
+	elevio.SetMotorDirection(d)
+	return event, floor
 }
 
 
 func UpdateLights(orders structs.Order_com) {
-  for {
+	for {
 		select {
 		case a := <-orders.Light:
-      elevio.SetButtonLamp(a.Button, a.Floor, a.Value)
+			elevio.SetButtonLamp(a.Button, a.Floor, a.Value)
 		}
 	}
 }
@@ -64,7 +64,7 @@ func UpdateLights(orders structs.Order_com) {
 func SendButtonPresses(orders structs.Order_com, event Event) {
 	for {
 		a := <- event.buttons
-	  orders.OrderFromButton <- structs.Order{Floor: a.Floor, Button: a.Button}
+		orders.OrderFromButton <- structs.Order{Floor: a.Floor, Button: a.Button}
 	}
 }
 
@@ -98,19 +98,19 @@ func ShouldStop(localOrders [][]int, currentFloor int, lastDir int, maxFloors in
 
 func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors int) (bool) {
 	if (dir == 1) {
-	  for i := currentFloor + 1; i < maxFloors; i++ {
-		  if (localOrders[i][0] == 1 || localOrders[i][1] == 1 || localOrders[i][2] == 1) {
+		for i := currentFloor + 1; i < maxFloors; i++ {
+			if (localOrders[i][0] == 1 || localOrders[i][1] == 1 || localOrders[i][2] == 1) {
 				return true
 			}
-	  }
+		}
 	}
 
 	if (dir == -1) {
-	  for i := currentFloor - 1; i >= 0; i-- {
-		  if (localOrders[i][0] == 1 || localOrders[i][1] == 1 || localOrders[i][2] == 1) {
+		for i := currentFloor - 1; i >= 0; i-- {
+			if (localOrders[i][0] == 1 || localOrders[i][1] == 1 || localOrders[i][2] == 1) {
 				return true
 			}
-	  }
+		}
 	}
 	return false
 }
@@ -161,7 +161,7 @@ func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int
 
 func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
 
-  go UpdateLights(orders)
+	go UpdateLights(orders)
 	go SendButtonPresses(orders, event)
 
 	//localOrders[floor][button], buttons 0 to 2: up, down, cab
@@ -180,7 +180,7 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, U
   for {
 		select {
 		case order := <- orders.OrderForLocal:
-		  localOrders[order.Floor][order.Button] = 1
+			localOrders[order.Floor][order.Button] = 1
 			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			fmt.Println(localOrders)
 			outgoing_msg.Queue = localOrders
@@ -192,18 +192,18 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, U
 			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 
 		case floor := <-event.floors:
-        outgoing_msg.Last_floor = floor
-        go func() { Update_out_msg_CH <- outgoing_msg }()
-        currentFloor = floor
-				elevio.SetFloorIndicator(floor)
-        if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
-					//executeStop <- 1
-					executeStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
-					updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
-				} else {
-					//updateMovement <- 1
-					updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
-				}
+			outgoing_msg.Last_floor = floor
+			go func() { Update_out_msg_CH <- outgoing_msg }()
+			currentFloor = floor
+			elevio.SetFloorIndicator(floor)
+			if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
+				//executeStop <- 1
+				executeStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
+				updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
+			} else {
+				//updateMovement <- 1
+				updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
+			}
 /*
 		case <-updateMovement:
 			fmt.Printf("Updating movement \n")
