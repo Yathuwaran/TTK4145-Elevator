@@ -51,7 +51,7 @@ const(
 type ExternalOrder struct{
   ID            string
   Destination   Order
-  
+
 }
 
 type Message_struct struct{

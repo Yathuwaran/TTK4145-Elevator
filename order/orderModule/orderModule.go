@@ -1,7 +1,7 @@
 package orderModule
 
 import (
-	S "../../structs"
+	S"../../structs"
 	"math"
 	"fmt"
 	D"../../elevio"
@@ -9,39 +9,9 @@ import (
 	"sort"
 	"sync"
 	"time"
-
-
 )
 
-
 var mutex = &sync.Mutex{}
-
-//OVERFLØDIG
-/*
-var orderQueue chan S.Order
-var initStatus bool
-
-// QueueInit initializes the orderQueue
-func QueueInit() {
-	if !initStatus {
-		initStatus = true
-		orderQueue = make(chan S.Order, 30)
-	}
-}
-
-// EnqueueLocal puts a new order into the orderQueue
-func EnqueueLocal(order S.Order) {
-	QueueInit()
-	orderQueue <- order
-}
-
-// RetrieveLocalOrder returns first order in queue
-func RetrieveLocalOrder() S.Order {
-	order := <-orderQueue
-	return order
-}
-*/
-
 
 func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elevArray map[string]*S.Message_struct, id string, outgoing_msg S.Message_struct,Update_out_msg_CH chan<- S.Message_struct) {
   for {
@@ -50,22 +20,23 @@ func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elev
 			if (int(a.Button) == 2 ){
 				orders.OrderForLocal <- a
 			}else{
-			external := GetBestElev(elevArray, a)
+			external, status := GetBestElev(elevArray, a)
+			if(status){
 			fmt.Println("The best elevator is:", external.ID, "\n")
 			ExternalOrder <- external
+		}else{fmt.Println("Order Allready taken")}
 		}
-
-
-
-
     case b := <-orders.OrderDone:
       fmt.Println("Order complete \n")
-			orders.Light <- S.LightOrder{Floor: b.Floor,
-												Button: 0, Value: false}
-      orders.Light <- S.LightOrder{Floor: b.Floor,
-												Button: 1, Value: false}
-			orders.Light <- S.LightOrder{Floor: b.Floor,
-												Button: 2, Value: false}
+			for i := 0; i < 3; i++ {
+				if(outgoing_msg.Queue[b.Floor][i] == 1){
+
+					orders.Light <- S.LightOrder{Floor: b.Floor,
+												Button: D.ButtonType(i), Value: false}
+					outgoing_msg.Queue[b.Floor][i] = 0
+			}
+		}
+		go func(){ Update_out_msg_CH <- outgoing_msg }()
 
      case c:= <- ExternalOrder:
 			 if (c.ID) == id{
@@ -87,30 +58,43 @@ func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elev
 }
 }
 
-func AddExternalOrder(orders S.Order_com, elevArray map[string]*S.Message_struct, id string){
-	for{
-			mutex.Lock()
-			var key []string
-			for l:= range elevArray{
-					key = append(key,l)
-					}
-			mutex.Unlock()
-			sort.Strings(key)
 
-	for i := 0; i < len(key); i++ {
-			if ((elevArray[key[i]].ExternalOrder).ID == id){
+func LightOrders (orders S.Order_com, elevArray map[string]*S.Message_struct, numFloors int, id string, key []string, externalLight [][]int) ([][]int) {
+		//fmt.Println(key, "LIGHTS")
+		for i := 0; i < len(key); i++ {
+			Queue:=elevArray[key[i]].Queue
+			if (((elevArray[key[i]]).ID != id) && len(Queue) >0){
+				for  j := 0; j < numFloors; j++{
+					for k := 0; k < 2; k++{
+						if((Queue[j][k]== 1) && (externalLight[j][k] == 0) ){
+						orders.Light <- S.LightOrder{Floor: j, Button: D.ButtonType(k), Value: true}
+						externalLight[j][k] = 1
+						}else if((Queue[j][k]== 0) && (externalLight[j][k] == 1) ){
+						orders.Light <- S.LightOrder{Floor: j, Button: D.ButtonType(k), Value: false}
+						externalLight[j][k] = 0
 
-				fmt.Println("---------------Received External Order---------------")
-				orders.OrderForLocal <- elevArray[key[i]].ExternalOrder.Destination
-				mutex.Lock()
-				((*elevArray[key[i]]).ExternalOrder).ID = "Empty"
-				mutex.Unlock()
-
-
+						}
+				}
 			}
-
+		}
 	}
-}}
+	return externalLight
+}
+
+func AddExternalOrder(orders S.Order_com, elevArray map[string]*S.Message_struct, id string,key[]string){
+
+		for i := 0; i < len(key); i++ {
+				if ((elevArray[key[i]].ExternalOrder).ID == id){
+
+					fmt.Println("---------------Received External Order---------------")
+					orders.OrderForLocal <- elevArray[key[i]].ExternalOrder.Destination
+					mutex.Lock()
+					((*elevArray[key[i]]).ExternalOrder).ID = "Empty"
+					mutex.Unlock()
+			}
+		}
+
+}
 
 
 func UpdatePeers(elevArray map[string]*S.Message_struct, New_peer_CH <- chan string, Lost_peers_CH <- chan []string, orders S.Order_com, Update_control_CH <- chan  S.Message_struct){
@@ -118,7 +102,6 @@ func UpdatePeers(elevArray map[string]*S.Message_struct, New_peer_CH <- chan str
 		select{
 		case a:= <- New_peer_CH:
 			var init_msg S.Message_struct
-
 			mutex.Lock()
 			elevArray[a] = &init_msg
 			elevArray[a].ID = a
@@ -127,29 +110,24 @@ func UpdatePeers(elevArray map[string]*S.Message_struct, New_peer_CH <- chan str
 			fmt.Println("New peer added to elevArray: ",elevArray[a],"\n")
 
 		case lost:= <- Lost_peers_CH:
-
-
 			fmt.Println("-------------LOST QUEUE RECEIVED--------------")
+			fmt.Println(elevArray[string(lost[0])].Queue)
 			for i := 0; i < len(elevArray[string(lost[0])].Queue); i++{
 				for j := 0; j < len(elevArray[string(lost[0])].Queue[i]); j++{
 					if (elevArray[string(lost[0])]).Queue[i][j] == 1{
 						orders.OrderFromButton <- S.Order{Floor: i, Button: D.ButtonType(j)}
-
 					}
 				}
 			}
 			mutex.Lock()
 			delete(elevArray,lost[0])
 			mutex.Unlock()
-
 				}
 		}
 }
 
 func UpdateElevArray(elevArray map[string]*S.Message_struct, update  S.Message_struct) {
 	//Update elevator_list from msg
-
-		//fmt.Println(elevArray[Update_control_CH.ID])
 		if elevArray[update.ID] == nil {
 			return
 		} else{
@@ -165,11 +143,12 @@ func UpdateElevArray(elevArray map[string]*S.Message_struct, update  S.Message_s
 	}
 }
 
-
 // GetBestElev returns the best suited elevator for an order
-func GetBestElev(elevArray map[string]*S.Message_struct, order S.Order) S.ExternalOrder {
+func GetBestElev(elevArray map[string]*S.Message_struct, order S.Order)  (S.ExternalOrder, bool) {
 	bestIndex := 0
 	bestScore := 0
+	counter   := 0
+	status		:= false
 
 	mutex.Lock()
 	var keys []string
@@ -186,15 +165,17 @@ func GetBestElev(elevArray map[string]*S.Message_struct, order S.Order) S.Extern
 			bestScore = score
 			bestIndex = i
 		}
+if (((elevArray[keys[i]]).Queue[order.Floor][order.Button]) == 0){
+			counter ++
+		}
 	}
-	return S.ExternalOrder{ID: keys[bestIndex], Destination: order}
+	if (counter == len(elevArray)){status = true}else{status = false}
+	return S.ExternalOrder{ID: keys[bestIndex], Destination: order}, status
 }
 
 // ElevatorCostFunction determines how well suited an elevator is for a particular order
 func ElevatorCostFunction(peer S.Message_struct, order S.Order) int {
-
 	var totalScore int
-
 	const ( // These values might need tweaking
 		Weight_PickupOnPassing       = 50
 		Weight_DistanceToOrder       = 10

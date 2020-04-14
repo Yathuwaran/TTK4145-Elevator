@@ -148,14 +148,16 @@ func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	elevio.SetDoorOpenLamp(true)
 	outgoing_msg.State = 2
+	go func() { Update_out_msg_CH <- outgoing_msg }()
 	time.Sleep(1 * time.Second)
 	elevio.SetDoorOpenLamp(false)
-	go func() { Update_out_msg_CH <- outgoing_msg }()
+	outgoing_msg.State = 0
+	go func(){ Update_out_msg_CH <- outgoing_msg }()
 	localOrders[currentFloor][0] = 0
 	localOrders[currentFloor][1] = 0
 	localOrders[currentFloor][2] = 0
 	orders.OrderDone <- structs.Order{Floor: currentFloor}
-	//fmt.Printf("Done executing floor %d\n", currentFloor)
+
 }
 
 
@@ -186,11 +188,12 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, U
 			localOrders[order.Floor][order.Button] = 1
 			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			//fmt.Println(localOrders)
-			outgoing_msg.Queue = localOrders
+			outgoing_msg.Queue[order.Floor][order.Button] = 1
 			go func() { Update_out_msg_CH <- outgoing_msg }()
 			if (idle == true && order.Floor == currentFloor) {
 				//executeStop <- 1
 				executeStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
+
 			}
 			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 
@@ -202,53 +205,12 @@ func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, U
 			if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
 				//executeStop <- 1
 				executeStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
+
 				updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			} else {
 				//updateMovement <- 1
 				updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			}
-/*
-		case <-updateMovement:
-			fmt.Printf("Updating movement \n")
-			oppositeDir := lastDir * (-1)
-			if (OrdersInDirection(lastDir, localOrders, currentFloor, maxFloors)) {
-			  elevio.SetMotorDirection(elevio.MotorDirection(lastDir))
-				outgoing_msg.Dir = structs.MotorDirection(lastDir)
-				outgoing_msg.State = 1
-				idle = false
-
-			} else if (OrdersInDirection(oppositeDir, localOrders, currentFloor, maxFloors)) {
-				elevio.SetMotorDirection(elevio.MotorDirection(oppositeDir))
-				lastDir = oppositeDir
-				outgoing_msg.Dir = structs.MotorDirection(oppositeDir)
-        outgoing_msg.State = 1
-				idle = false
-
-			} else {
-				elevio.SetMotorDirection(elevio.MD_Stop)
-				outgoing_msg.Dir = 0
-        outgoing_msg.State = 0
-				idle = true
-			}
-			go func() { Update_out_msg_CH <- outgoing_msg }()
-			fmt.Printf("Updated movement \n")
-
-
-		case <-executeStop:
-			fmt.Printf("Executing stop at floor %d\n", currentFloor)
-			elevio.SetMotorDirection(elevio.MD_Stop)
-			elevio.SetDoorOpenLamp(true)
-			outgoing_msg.State = 2
-			time.Sleep(1 * time.Second)
-			elevio.SetDoorOpenLamp(false)
-			go func() { Update_out_msg_CH <- outgoing_msg }()
-			localOrders[currentFloor][0] = 0
-			localOrders[currentFloor][1] = 0
-			localOrders[currentFloor][2] = 0
-			orders.OrderDone <- structs.Order{Floor: currentFloor}
-			updateMovement <- 1
-			fmt.Printf("Done executing floor %d\n", currentFloor)
-*/
 		}
 	}
 }
