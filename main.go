@@ -88,7 +88,7 @@ outgoing_msg.Queue = Queue
   go func(){for{peer_list=<-comm.Peers}}()
   go orderModule.UpdatePeers(elevArray, comm.New_peer_CH, comm.Lost_peers_CH, orders, comm.Update_control_CH)
   go orderModule.GenerateOrders(orders, ExternalOrders, elevArray,id, outgoing_msg, out)
-  go controller.Operate_elev(orders, event, current_floor, numFloors, out, outgoing_msg)
+  go controller.OperateElev(orders, event, current_floor, numFloors, out, outgoing_msg)
 
 
   go func(){

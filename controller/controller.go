@@ -161,7 +161,7 @@ func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int
 }
 
 
-func Operate_elev(orders structs.Order_com, event Event, f int, maxFloors int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
+func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
 
 	go UpdateLights(orders)
 	go SendButtonPresses(orders, event)
