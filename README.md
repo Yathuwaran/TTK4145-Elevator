@@ -10,7 +10,7 @@ Then start main by writing "go run main.go PORTNR"
 
 TODO:
 
- - [ ] Fix bugs in controller
+ - [x] Fix bugs in controller
  - [ ] Add functionality such that Hall_btn lights are same for all elevs
  - [ ] Add backup (not sure if needed?)
 

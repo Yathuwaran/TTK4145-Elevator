@@ -2,12 +2,14 @@ package controller
 
 
 import (
-	//"fmt"
+	"fmt"
 	"../elevio"
 	"../structs"
 	"time"
+	"sync"
 )
 
+var Mutex = &sync.Mutex{}
 
 type Event struct {
 	buttons chan elevio.ButtonEvent
@@ -116,34 +118,40 @@ func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors
 }
 
 
-func updateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloors int, idle *bool, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
+func UpdateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloors int, idle *bool, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
 	//fmt.Printf("Updating movement \n")
 	oppositeDir := *lastDir * (-1)
 	if (OrdersInDirection(*lastDir, localOrders, currentFloor, maxFloors)) {
 		elevio.SetMotorDirection(elevio.MotorDirection(*lastDir))
 		outgoing_msg.Dir = structs.MotorDirection(*lastDir)
 		outgoing_msg.State = 1
+		Mutex.Lock()
 		*idle = false
+		Mutex.Unlock()
 
 	} else if (OrdersInDirection(oppositeDir, localOrders, currentFloor, maxFloors)) {
 		elevio.SetMotorDirection(elevio.MotorDirection(oppositeDir))
 		*lastDir = oppositeDir
 		outgoing_msg.Dir = structs.MotorDirection(oppositeDir)
 		outgoing_msg.State = 1
+		Mutex.Lock()
 		*idle = false
+		Mutex.Unlock()
 
 	} else {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		outgoing_msg.Dir = 0
 		outgoing_msg.State = 0
+		Mutex.Lock()
 		*idle = true
+		Mutex.Unlock()
 	}
 	go func() { Update_out_msg_CH <- outgoing_msg }()
 	//fmt.Printf("Updated movement \n")
 }
 
-//always updateMovement after executeStop
-func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
+//always UpdateMovement after ExecuteStop
+func ExecuteStop(localOrders [][]int, orders structs.Order_com, currentFloor int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
 	//fmt.Printf("Executing stop at floor %d\n", currentFloor)
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	elevio.SetDoorOpenLamp(true)
@@ -161,6 +169,33 @@ func executeStop(localOrders [][]int, orders structs.Order_com, currentFloor int
 }
 
 
+func Watchdog(updateTimer <-chan int, resetTimer <-chan int, resetElevator chan<- int, doneResetting <-chan int, idle *bool) {
+
+	timer := time.NewTimer(10 * time.Second)
+
+	for {
+	  select {
+		case <-updateTimer:
+			timer.Reset(10 * time.Second)
+
+		case <-timer.C:
+			Mutex.Lock()
+			if (!(*idle)) {
+				resetElevator<- 1
+				<-doneResetting
+			}
+			Mutex.Unlock()
+      timer.Reset(10 * time.Second)
+	  }
+	}
+}
+
+
+
+
+
+
+
 func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
 
 	go UpdateLights(orders)
@@ -175,9 +210,18 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
   currentFloor := f
 	lastDir := elevio.MD_Down
 
-  //updateMovement := make(chan int, 4096)
-  //executeStop := make(chan int, 4096)
+  //UpdateMovement
+  //ExecuteStop := make(chan int, 4096)
 	idle := true
+
+
+	updateTimer := make(chan int, 4096)
+	resetTimer := make(chan int, 4096)
+	resetElevator := make(chan int, 4096)
+	doneResetting := make(chan int, 4096)
+
+  go Watchdog(updateTimer, resetTimer, resetElevator, doneResetting, &idle)
+
 
   for {
 		select {
@@ -186,16 +230,19 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 			orders.Light <- structs.LightOrder{Floor: order.Floor, Button: order.Button, Value: true}
 
 			localOrders[order.Floor][order.Button] = 1
-			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
+			UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			//fmt.Println(localOrders)
 			outgoing_msg.Queue[order.Floor][order.Button] = 1
 			go func() { Update_out_msg_CH <- outgoing_msg }()
-			if (idle == true && order.Floor == currentFloor) {
-				//executeStop <- 1
-				executeStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
+			if (idle == true) {
+				if (order.Floor == currentFloor) {
+				  ExecuteStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
+			  } else {
+
+				}
 
 			}
-			updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
+			UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 
 		case floor := <-event.floors:
 			outgoing_msg.Last_floor = floor
@@ -203,14 +250,34 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 			currentFloor = floor
 			elevio.SetFloorIndicator(floor)
 			if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
-				//executeStop <- 1
-				executeStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
+				//ExecuteStop <- 1
+				ExecuteStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
 
-				updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
+				UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			} else {
-				//updateMovement <- 1
-				updateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
+				//UpdateMovement <- 1
+				UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			}
+
+			case <-resetElevator:
+				fmt.Println("Reseting..")
+				outgoing_msg.State = 3
+				go func(){ Update_out_msg_CH <- outgoing_msg }()
+				recoveryDir := elevio.MotorDirection(lastDir * (-1))
+				L:
+				for {
+					select {
+					case <-event.floors:
+						break L
+
+					default:
+						//keep trying in case motor stops again
+						elevio.SetMotorDirection(recoveryDir)
+					}
+				}
+				doneResetting <- 1
+				outgoing_msg.State = 0
+				go func(){ Update_out_msg_CH <- outgoing_msg }()
 		}
 	}
 }

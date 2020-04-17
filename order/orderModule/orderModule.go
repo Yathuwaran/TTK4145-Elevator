@@ -24,7 +24,7 @@ func GenerateOrders(orders S.Order_com, ExternalOrder chan S.ExternalOrder, elev
 			if(status){
 			fmt.Println("The best elevator is:", external.ID, "\n")
 			ExternalOrder <- external
-		}else{fmt.Println("Order Allready taken")}
+		}else{fmt.Println("Order Already taken")}
 		}
     case b := <-orders.OrderDone:
       fmt.Println("Order complete \n")
