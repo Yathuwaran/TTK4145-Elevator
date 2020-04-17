@@ -169,13 +169,13 @@ func ExecuteStop(localOrders [][]int, orders structs.Order_com, currentFloor int
 }
 
 
-func Watchdog(updateTimer <-chan int, resetTimer <-chan int, resetElevator chan<- int, doneResetting <-chan int, idle *bool) {
+func Watchdog(resetTimer <-chan int, resetElevator chan<- int, doneResetting <-chan int, idle *bool) {
 
 	timer := time.NewTimer(10 * time.Second)
 
 	for {
 	  select {
-		case <-updateTimer:
+		case <-resetTimer:
 			timer.Reset(10 * time.Second)
 
 		case <-timer.C:
@@ -215,12 +215,11 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 	idle := true
 
   //watchdog com
-	updateTimer := make(chan int, 4096)
 	resetTimer := make(chan int, 4096)
 	resetElevator := make(chan int, 4096)
 	doneResetting := make(chan int, 4096)
 
-  go Watchdog(updateTimer, resetTimer, resetElevator, doneResetting, &idle)
+  go Watchdog(resetTimer, resetElevator, doneResetting, &idle)
 
 
   for {
@@ -237,10 +236,9 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 			if (idle == true) {
 				if (order.Floor == currentFloor) {
 				  ExecuteStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
-			  } else {
-
+				} else {
+					resetTimer <- 1
 				}
-
 			}
 			UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 
@@ -258,6 +256,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 				//UpdateMovement <- 1
 				UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			}
+			resetTimer <- 1
 
 			case <-resetElevator:
 				fmt.Println("Reseting..")
@@ -275,6 +274,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 						elevio.SetMotorDirection(recoveryDir)
 					}
 				}
+				elevio.SetMotorDirection(elevio.MD_Stop)
 				doneResetting <- 1
 				outgoing_msg.State = 0
 				go func(){ Update_out_msg_CH <- outgoing_msg }()
