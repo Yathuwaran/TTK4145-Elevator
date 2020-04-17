@@ -214,7 +214,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
   //ExecuteStop := make(chan int, 4096)
 	idle := true
 
-
+  //watchdog com
 	updateTimer := make(chan int, 4096)
 	resetTimer := make(chan int, 4096)
 	resetElevator := make(chan int, 4096)
