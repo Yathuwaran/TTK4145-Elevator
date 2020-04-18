@@ -168,16 +168,16 @@ func Watchdog(resetTimer <-chan int, resetElevator chan<- int, doneResetting <-c
 	for {
 	  select {
 		case <-resetTimer:
-			fmt.Println("Timer reset")
+			//fmt.Println("Timer reset")
 			timer.Reset(10 * time.Second)
 
 		case <-timer.C:
-			fmt.Println("Timer ran out, idle: ", *idle)
+			//fmt.Println("Timer ran out, idle: ", *idle)
 			if (!(*idle)) {
-				fmt.Println("Resetting elevator")
+				//fmt.Println("Resetting elevator")
 				resetElevator<- 1
 				<-doneResetting
-				fmt.Println("Done resetting")
+				//fmt.Println("Done resetting")
 			}
       timer.Reset(10 * time.Second)
 	  }
@@ -268,9 +268,9 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 				}
 				*/
 				elevio.SetMotorDirection(elevio.MD_Stop)
-				fmt.Println("***Managed to stop")
+				//fmt.Println("***Managed to stop")
 				doneResetting <- 1
-				fmt.Println("***doneResetting sent")
+				//fmt.Println("***doneResetting sent")
 
 				/*
 				event.floors <- recoveryFloor
@@ -284,7 +284,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 
 				outgoing_msg.State = 0
 				go func(){ Update_out_msg_CH <- outgoing_msg }()
-				fmt.Println("Recovery status sent")
+				//fmt.Println("Recovery status sent")
 				event.floors <- recoveryFloor
 		}
 	}
