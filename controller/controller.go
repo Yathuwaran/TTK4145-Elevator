@@ -6,10 +6,8 @@ import (
 	"../elevio"
 	"../structs"
 	"time"
-	"sync"
 )
 
-var Mutex = &sync.Mutex{}
 
 type Event struct {
 	buttons chan elevio.ButtonEvent
@@ -125,26 +123,20 @@ func UpdateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloo
 		elevio.SetMotorDirection(elevio.MotorDirection(*lastDir))
 		outgoing_msg.Dir = structs.MotorDirection(*lastDir)
 		outgoing_msg.State = 1
-		Mutex.Lock()
 		*idle = false
-		Mutex.Unlock()
 
 	} else if (OrdersInDirection(oppositeDir, localOrders, currentFloor, maxFloors)) {
 		elevio.SetMotorDirection(elevio.MotorDirection(oppositeDir))
 		*lastDir = oppositeDir
 		outgoing_msg.Dir = structs.MotorDirection(oppositeDir)
 		outgoing_msg.State = 1
-		Mutex.Lock()
 		*idle = false
-		Mutex.Unlock()
 
 	} else {
 		elevio.SetMotorDirection(elevio.MD_Stop)
 		outgoing_msg.Dir = 0
 		outgoing_msg.State = 0
-		Mutex.Lock()
 		*idle = true
-		Mutex.Unlock()
 	}
 	go func() { Update_out_msg_CH <- outgoing_msg }()
 	//fmt.Printf("Updated movement \n")
@@ -176,15 +168,17 @@ func Watchdog(resetTimer <-chan int, resetElevator chan<- int, doneResetting <-c
 	for {
 	  select {
 		case <-resetTimer:
+			fmt.Println("Timer reset")
 			timer.Reset(10 * time.Second)
 
 		case <-timer.C:
-			Mutex.Lock()
+			fmt.Println("Timer ran out, idle: ", *idle)
 			if (!(*idle)) {
+				fmt.Println("Resetting elevator")
 				resetElevator<- 1
 				<-doneResetting
+				fmt.Println("Done resetting")
 			}
-			Mutex.Unlock()
       timer.Reset(10 * time.Second)
 	  }
 	}
@@ -225,7 +219,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
   for {
 		select {
 		case order := <- orders.OrderForLocal:
-
+      resetTimer <- 1
 			orders.Light <- structs.LightOrder{Floor: order.Floor, Button: order.Button, Value: true}
 
 			localOrders[order.Floor][order.Button] = 1
@@ -233,17 +227,14 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 			//fmt.Println(localOrders)
 			outgoing_msg.Queue[order.Floor][order.Button] = 1
 			go func() { Update_out_msg_CH <- outgoing_msg }()
-			if (idle == true) {
-				if (order.Floor == currentFloor) {
+			if (idle == true && order.Floor == currentFloor) {
 				  ExecuteStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
-				} else {
-					resetTimer <- 1
-				}
 			}
 			UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 
 		case floor := <-event.floors:
 			outgoing_msg.Last_floor = floor
+			resetTimer <- 1
 			go func() { Update_out_msg_CH <- outgoing_msg }()
 			currentFloor = floor
 			elevio.SetFloorIndicator(floor)
@@ -256,13 +247,19 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 				//UpdateMovement <- 1
 				UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			}
-			resetTimer <- 1
 
 			case <-resetElevator:
-				fmt.Println("Reseting..")
 				outgoing_msg.State = 3
 				go func(){ Update_out_msg_CH <- outgoing_msg }()
-				recoveryDir := elevio.MotorDirection(lastDir * (-1))
+				recoveryDir := elevio.MotorDirection(1)
+				if (currentFloor == 0) {
+					recoveryDir = elevio.MotorDirection(1)
+				} else {
+					recoveryDir = elevio.MotorDirection(-1)
+				}
+				elevio.SetMotorDirection(recoveryDir)
+				recoveryFloor := <-event.floors
+				/*
 				L:
 				for {
 					select {
@@ -274,10 +271,25 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 						elevio.SetMotorDirection(recoveryDir)
 					}
 				}
+				*/
 				elevio.SetMotorDirection(elevio.MD_Stop)
+				fmt.Println("***Managed to stop")
 				doneResetting <- 1
+				fmt.Println("***doneResetting sent")
+
+				/*
+				event.floors <- recoveryFloor
+				fmt.Println("***recoveryFloor sent")
+        */
+
+				outgoing_msg.Last_floor = recoveryFloor
+				go func() { Update_out_msg_CH <- outgoing_msg }()
+				currentFloor = recoveryFloor
+				elevio.SetFloorIndicator(recoveryFloor)
+
 				outgoing_msg.State = 0
 				go func(){ Update_out_msg_CH <- outgoing_msg }()
+				fmt.Println("Recovery status sent")
 		}
 	}
 }

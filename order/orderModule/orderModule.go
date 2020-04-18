@@ -210,7 +210,7 @@ func ElevatorCostFunction(peer S.Message_struct, order S.Order) int {
 	totalScore += (4 - floorDifference) * Weight_DistanceToOrder
 
 	///////////////////////////////////////////////////////////////////////////////
-
+  fmt.Println("ELEVATOR STATUS: ", peer.State)
 	if peer.State == S.Moving {
 
 		totalScore += (1 * Weight_ActivityStateRunning)
