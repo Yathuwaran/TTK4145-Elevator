@@ -25,7 +25,7 @@ func Init_elev(port string, numFloors int) (Event, int) {
 
 	event := Event{
 		buttons:    make(chan elevio.ButtonEvent),
-		floors:     make(chan int),
+		floors:     make(chan int, 1024),
 		obstr:      make(chan bool),
 		stop:       make(chan bool)}
 
@@ -185,11 +185,6 @@ func Watchdog(resetTimer <-chan int, resetElevator chan<- int, doneResetting <-c
 }
 
 
-
-
-
-
-
 func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
 
 	go UpdateLights(orders)
@@ -290,6 +285,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 				outgoing_msg.State = 0
 				go func(){ Update_out_msg_CH <- outgoing_msg }()
 				fmt.Println("Recovery status sent")
+				event.floors <- recoveryFloor
 		}
 	}
 }
