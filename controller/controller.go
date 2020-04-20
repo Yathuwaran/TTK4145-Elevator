@@ -2,7 +2,6 @@ package controller
 
 
 import (
-	"fmt"
 	"../elevio"
 	"../structs"
 	"time"
@@ -117,7 +116,7 @@ func OrdersInDirection(dir int, localOrders [][]int, currentFloor int, maxFloors
 
 
 func UpdateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloors int, idle *bool, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
-	//fmt.Printf("Updating movement \n")
+
 	oppositeDir := *lastDir * (-1)
 	if (OrdersInDirection(*lastDir, localOrders, currentFloor, maxFloors)) {
 		elevio.SetMotorDirection(elevio.MotorDirection(*lastDir))
@@ -139,12 +138,12 @@ func UpdateMovement(lastDir *int, localOrders [][]int, currentFloor int, maxFloo
 		*idle = true
 	}
 	go func() { Update_out_msg_CH <- outgoing_msg }()
-	//fmt.Printf("Updated movement \n")
+
 }
 
-//always UpdateMovement after ExecuteStop
+
 func ExecuteStop(localOrders [][]int, orders structs.Order_com, currentFloor int, Update_out_msg_CH chan<- structs.Message_struct, outgoing_msg structs.Message_struct) {
-	//fmt.Printf("Executing stop at floor %d\n", currentFloor)
+
 	elevio.SetMotorDirection(elevio.MD_Stop)
 	elevio.SetDoorOpenLamp(true)
 	outgoing_msg.State = 2
@@ -168,16 +167,16 @@ func Watchdog(resetTimer <-chan int, resetElevator chan<- int, doneResetting <-c
 	for {
 	  select {
 		case <-resetTimer:
-			//fmt.Println("Timer reset")
+
 			timer.Reset(10 * time.Second)
 
 		case <-timer.C:
-			//fmt.Println("Timer ran out, idle: ", *idle)
+
 			if (!(*idle)) {
-				//fmt.Println("Resetting elevator")
+
 				resetElevator<- 1
 				<-doneResetting
-				//fmt.Println("Done resetting")
+
 			}
       timer.Reset(10 * time.Second)
 	  }
@@ -190,7 +189,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 	go UpdateLights(orders)
 	go SendButtonPresses(orders, event)
 
-	//localOrders[floor][button], buttons 0 to 2: up, down, cab
+
 	localOrders := make([][]int, maxFloors)
   for i := 0; i < maxFloors; i++ {
 		localOrders[i] = make([]int, 3)
@@ -199,8 +198,8 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
   currentFloor := f
 	lastDir := elevio.MD_Down
 
-  //UpdateMovement
-  //ExecuteStop := make(chan int, 4096)
+
+
 	idle := true
 
   //watchdog com
@@ -219,7 +218,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 
 			localOrders[order.Floor][order.Button] = 1
 			UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
-			//fmt.Println(localOrders)
+
 			outgoing_msg.Queue[order.Floor][order.Button] = 1
 			go func() { Update_out_msg_CH <- outgoing_msg }()
 			if (idle == true && order.Floor == currentFloor) {
@@ -234,12 +233,12 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 			currentFloor = floor
 			elevio.SetFloorIndicator(floor)
 			if ShouldStop(localOrders, currentFloor, lastDir, maxFloors) {
-				//ExecuteStop <- 1
+
 				ExecuteStop(localOrders, orders, currentFloor, Update_out_msg_CH, outgoing_msg)
 
 				UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			} else {
-				//UpdateMovement <- 1
+
 				UpdateMovement(&lastDir, localOrders, currentFloor, maxFloors, &idle, Update_out_msg_CH, outgoing_msg)
 			}
 
@@ -254,28 +253,10 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 				}
 				elevio.SetMotorDirection(recoveryDir)
 				recoveryFloor := <-event.floors
-				/*
-				L:
-				for {
-					select {
-					case <-event.floors:
-						break L
 
-					default:
-						//keep trying in case motor stops again
-						elevio.SetMotorDirection(recoveryDir)
-					}
-				}
-				*/
 				elevio.SetMotorDirection(elevio.MD_Stop)
-				//fmt.Println("***Managed to stop")
-				doneResetting <- 1
-				//fmt.Println("***doneResetting sent")
 
-				/*
-				event.floors <- recoveryFloor
-				fmt.Println("***recoveryFloor sent")
-        */
+				doneResetting <- 1
 
 				outgoing_msg.Last_floor = recoveryFloor
 				go func() { Update_out_msg_CH <- outgoing_msg }()
@@ -284,7 +265,7 @@ func OperateElev(orders structs.Order_com, event Event, f int, maxFloors int, Up
 
 				outgoing_msg.State = 0
 				go func(){ Update_out_msg_CH <- outgoing_msg }()
-				//fmt.Println("Recovery status sent")
+
 				event.floors <- recoveryFloor
 		}
 	}
